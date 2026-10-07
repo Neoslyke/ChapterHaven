@@ -511,7 +511,7 @@
     }
 
     const items = lines.map(line => {
-      // 1. If user separated using pipes: Title | Alt Titles | Chapter
+      // Check if user separated using pipes: Title | Alt Titles | Chapter
       if (line.includes('|')) {
         const parts = line.split('|').map(p => p.trim());
         return {
@@ -520,39 +520,8 @@
           chapter: parseFloat(parts[2]) || 0
         };
       }
-
-      // 2. Smart auto-detect: Title / Alt Titles 145 [Complete]
-      let text = line.trim();
-      let status = 'Reading';
-      if (/\b(?:complete|completed)\b/i.test(text)) {
-        status = 'Completed';
-        text = text.replace(/\b(?:complete|completed)\b/gi, '').trim();
-      } else if (/-\s*end\b/i.test(text)) {
-        status = 'Completed';
-        text = text.replace(/-\s*end\b/gi, '').trim();
-      }
-
-      let chapter = 0;
-      const numMatch = text.match(/\s+([0-9]+(?:\.[0-9]+)?)$/);
-      if (numMatch) {
-        chapter = parseFloat(numMatch[1]) || 0;
-        text = text.slice(0, numMatch.index).trim();
-      }
-
-      let title = text;
-      let altTitles = '';
-      if (text.includes('/')) {
-        const parts = text.split('/').map(p => p.trim()).filter(Boolean);
-        title = parts[0] || '';
-        altTitles = parts.slice(1).join(', ');
-      }
-
-      return {
-        title,
-        alt_titles: altTitles,
-        chapter,
-        status
-      };
+      // Simple title per line
+      return { title: line, chapter: 0 };
     }).filter(i => i.title.length > 0);
 
     await executeBulkImport(items);
