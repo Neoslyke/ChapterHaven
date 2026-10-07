@@ -12,6 +12,7 @@ function basicAuthMiddleware(req, res, next) {
   const authHeader = req.headers['authorization'];
 
   if (!authHeader || !authHeader.startsWith('Basic ')) {
+    console.warn('[ChapterHaven Auth] Missing Authorization header from proxy. Check proxy_set_header Authorization $http_authorization in Nginx.');
     res.setHeader('WWW-Authenticate', 'Basic realm="ChapterHaven Access", charset="UTF-8"');
     return res.status(401).send('Authentication required to access ChapterHaven.');
   }
@@ -22,6 +23,7 @@ function basicAuthMiddleware(req, res, next) {
     const colonIndex = credentials.indexOf(':');
 
     if (colonIndex === -1) {
+      console.warn('[ChapterHaven Auth] Malformed authorization header format.');
       res.setHeader('WWW-Authenticate', 'Basic realm="ChapterHaven Access", charset="UTF-8"');
       return res.status(401).send('Invalid authentication header.');
     }
@@ -41,10 +43,12 @@ function basicAuthMiddleware(req, res, next) {
       crypto.timingSafeEqual(passBuffer, expectedPassBuffer);
 
     if (!isUserValid || !isPassValid) {
+      console.warn(`[ChapterHaven Auth] Login failed: provided user "${user}" vs expected "${expectedUser}". Password match: ${isPassValid}`);
       res.setHeader('WWW-Authenticate', 'Basic realm="ChapterHaven Access", charset="UTF-8"');
       return res.status(401).send('Invalid username or password.');
     }
 
+    console.log(`[ChapterHaven Auth] Login success: "${user}"`);
     req.user = user;
     return next();
   } catch (err) {
