@@ -275,7 +275,6 @@
             <button class="step-btn" data-action="chapter-inc" title="Next chapter (+1)">+</button>
           </div>
           ${urlBtn}
-          <button class="btn-edit-trigger" data-action="edit" title="Edit details">✎</button>
         </div>
       </div>
     `;
