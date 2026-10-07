@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ChapterHaven | Manga & Manhwa Tracker</title>
+  <meta name="description" content="Ultra-fast, text-only manga, manhwa, and manhua chapter tracker.">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="brand-area">
+        <div class="brand-logo">📖</div>
+        <div>
+          <h1 class="brand-title">ChapterHaven</h1>
+          <p class="brand-subtitle">Instant Text-Only Manga &bull; Manhwa &bull; Manhua Tracker</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btnOpenAddModal" class="btn btn-primary" title="Add a new entry (Shortcut: N)">
+          <span class="icon">+</span> Add Title
+        </button>
+        <button id="btnOpenImportExport" class="btn btn-secondary" title="Import / Export 1000+ titles">
+          <span class="icon">⇄</span> Import / Export
+        </button>
+      </div>
+    </header>
+
+    <!-- Sticky Live Search Bar -->
+    <section class="search-section">
+      <div class="search-box-wrapper">
+        <span class="search-icon">🔍</span>
+        <input 
+          type="search" 
+          id="searchInput" 
+          class="search-input" 
+          placeholder="Live search by name or alternative titles (e.g. 'reincarnation', 'solo')... [Press / to focus]"
+          autocomplete="off"
+          spellcheck="false"
+        >
+        <button id="btnClearSearch" class="btn-clear-search" title="Clear search" style="display: none;">&times;</button>
+      </div>
+      <div class="search-stats-bar">
+        <div id="statsCount" class="stats-text">Loading titles...</div>
+        <div class="stats-filters">
+          <button class="filter-chip active" data-type="all">All</button>
+          <button class="filter-chip" data-type="Manhwa">Manhwa</button>
+          <button class="filter-chip" data-type="Manga">Manga</button>
+          <button class="filter-chip" data-type="Manhua">Manhua</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Content Lists -->
+    <main class="lists-container">
+      <!-- Category 1: Favourites -->
+      <section id="favoritesSection" class="category-section">
+        <div class="category-header">
+          <div class="category-title-group">
+            <span class="category-icon">⭐</span>
+            <h2 class="category-title">Favourites</h2>
+            <span id="favCountBadge" class="count-badge">0</span>
+          </div>
+          <span class="category-note">Sorted A &rarr; Z &bull; Pinned on Top</span>
+        </div>
+        <div id="favoritesList" class="entry-list">
+          <!-- Favorite entries rendered here -->
+        </div>
+      </section>
+
+      <!-- Category 2: All Titles / Non-Favourites -->
+      <section id="mainSection" class="category-section">
+        <div class="category-header">
+          <div class="category-title-group">
+            <span class="category-icon">📚</span>
+            <h2 class="category-title">All Titles</h2>
+            <span id="mainCountBadge" class="count-badge">0</span>
+          </div>
+          <span class="category-note">Sorted A &rarr; Z</span>
+        </div>
+        <div id="mainList" class="entry-list">
+          <!-- Main entries rendered here -->
+        </div>
+      </section>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="empty-state" style="display: none;">
+        <div class="empty-icon">📂</div>
+        <h3 id="emptyTitle">No titles found</h3>
+        <p id="emptyMessage">Try a different search query or add a new title.</p>
+        <button id="btnEmptyAdd" class="btn btn-primary" style="margin-top: 1rem;">+ Add Title</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Entry Modal (Add / Edit) -->
+  <div id="entryModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modalTitle">Edit Title</h3>
+        <button class="btn-close-modal" id="btnCloseEntryModal">&times;</button>
+      </div>
+      <form id="entryForm" class="modal-form">
+        <input type="hidden" id="entryId">
+
+        <div class="form-group">
+          <label for="inputTitle" class="form-label">Title / Name <span class="required">*</span></label>
+          <input type="text" id="inputTitle" class="form-control" required placeholder="e.g. Omniscient Reader's Viewpoint" autocomplete="off">
+        </div>
+
+        <div class="form-group">
+          <label for="inputAltTitles" class="form-label">Alternative Names <span class="label-hint">(Separate with commas)</span></label>
+          <textarea id="inputAltTitles" class="form-control" rows="2" placeholder="e.g. ORV, Jeonjijeok Dokja Sijeom, The Reader"></textarea>
+          <span class="field-hint">Live search checks both primary name and all alternative names.</span>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col-half">
+            <label for="inputChapter" class="form-label">Current Chapter</label>
+            <input type="number" step="any" min="0" id="inputChapter" class="form-control" placeholder="e.g. 150 or 45.5">
+          </div>
+          <div class="form-group col-half">
+            <label for="inputType" class="form-label">Type</label>
+            <select id="inputType" class="form-control">
+              <option value="Manhwa">Manhwa (Korean)</option>
+              <option value="Manga">Manga (Japanese)</option>
+              <option value="Manhua">Manhua (Chinese)</option>
+              <option value="Webtoon">Webtoon</option>
+              <option value="Novel">Light / Web Novel</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col-half">
+            <label for="inputStatus" class="form-label">Status</label>
+            <select id="inputStatus" class="form-control">
+              <option value="Reading">Reading</option>
+              <option value="Completed">Completed</option>
+              <option value="On Hold">On Hold</option>
+              <option value="Plan to Read">Plan to Read</option>
+              <option value="Dropped">Dropped</option>
+            </select>
+          </div>
+          <div class="form-group col-half">
+            <label class="form-label">Favourite</label>
+            <label class="checkbox-container">
+              <input type="checkbox" id="inputIsFavorite">
+              <span class="checkbox-custom"></span>
+              <span class="checkbox-text">⭐ Pin to Favourites</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="inputUrl" class="form-label">Read URL / Source Link <span class="label-hint">(Optional)</span></label>
+          <input type="url" id="inputUrl" class="form-control" placeholder="https://...">
+        </div>
+
+        <div class="form-group">
+          <label for="inputNotes" class="form-label">Notes <span class="label-hint">(Optional)</span></label>
+          <input type="text" id="inputNotes" class="form-control" placeholder="e.g. Chapter 142 released weekly on Tuesdays">
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" id="btnDeleteEntry" class="btn btn-danger" style="display: none;">Delete</button>
+          <div class="footer-right-buttons">
+            <button type="button" class="btn btn-secondary" id="btnCancelEntry">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="btnSaveEntry">Save</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Bulk Import / Export Modal -->
+  <div id="importExportModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card modal-large">
+      <div class="modal-header">
+        <h3>Bulk Import &amp; Export (1000+ Titles)</h3>
+        <button class="btn-close-modal" id="btnCloseImportModal">&times;</button>
+      </div>
+      <div class="modal-tabs">
+        <button class="tab-btn active" data-tab="tabQuickPaste">Quick Text Paste</button>
+        <button class="tab-btn" data-tab="tabFileImport">Import JSON / CSV</button>
+        <button class="tab-btn" data-tab="tabExport">Export / Backup</button>
+      </div>
+
+      <!-- Tab 1: Quick Text Paste -->
+      <div id="tabQuickPaste" class="tab-content active">
+        <p class="tab-description">
+          Paste your existing list of titles below (one per line). Format can be just titles, or <code>Title | Alt Titles | Chapter</code>.
+        </p>
+        <textarea id="pasteTextInput" class="form-control" rows="10" placeholder="Solo Leveling | Only I Level Up | 179&#10;Omniscient Reader's Viewpoint | ORV | 225&#10;Magic Emperor | Demonic Emperor | 540&#10;Tower of God | 620&#10;The Beginning After The End | TBATE | 185"></textarea>
+        <div class="import-actions">
+          <span id="pasteCountIndicator" class="field-hint">0 lines detected</span>
+          <button id="btnRunPasteImport" class="btn btn-primary">Import Pasted Titles</button>
+        </div>
+      </div>
+
+      <!-- Tab 2: File Import -->
+      <div id="tabFileImport" class="tab-content">
+        <p class="tab-description">
+          Upload a backup <code>.json</code> or <code>.csv</code> file containing your titles.
+        </p>
+        <div class="file-upload-box">
+          <input type="file" id="fileInput" accept=".json,.csv">
+          <label for="fileInput" class="file-label">
+            <span class="file-icon">📁</span>
+            <span id="fileNameDisplay">Choose a .json or .csv file</span>
+          </label>
+        </div>
+        <div class="import-actions" style="margin-top: 1.5rem;">
+          <button id="btnRunFileImport" class="btn btn-primary" disabled>Import File</button>
+        </div>
+      </div>
+
+      <!-- Tab 3: Export -->
+      <div id="tabExport" class="tab-content">
+        <p class="tab-description">
+          Download a full backup of all your tracked titles anytime.
+        </p>
+        <div class="export-buttons-group">
+          <button id="btnExportJSON" class="btn btn-secondary">
+            <span class="icon">📥</span> Download JSON Backup
+          </button>
+          <button id="btnExportCSV" class="btn btn-secondary">
+            <span class="icon">📊</span> Download CSV Spreadsheet
+          </button>
+        </div>
+      </div>
+
+      <!-- Import Progress / Message Area -->
+      <div id="importStatusArea" class="import-status-area" style="display: none;"></div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="toast" style="display: none;"></div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

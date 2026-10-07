@@ -1,0 +1,25 @@
+services:
+  chapterhaven:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chapterhaven
+    restart: unless-stopped
+    ports:
+      # Map host port 80 to container port 3000 so you can browse http://<your_oracle_ip>/chapterhaven
+      - "80:3000"
+    environment:
+      - PORT=3000
+      - BASE_PATH=/chapterhaven
+      - AUTH_ENABLED=${AUTH_ENABLED:-true}
+      - AUTH_USER=${AUTH_USER:-admin}
+      - AUTH_PASS=${AUTH_PASS:-chapterhaven123}
+      - DATA_DIR=/app/data
+    volumes:
+      # Persistent SQLite database volume stored in ./data on host
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

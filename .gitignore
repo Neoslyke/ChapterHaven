@@ -1,0 +1,8 @@
+node_modules/
+data/
+data_test*/
+.env
+.DS_Store
+*.log
+.vs/
+.vscode/
