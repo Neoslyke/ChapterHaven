@@ -48,20 +48,20 @@ async function runTests() {
     throw new Error('Root path was not dropped with ERR_EMPTY_RESPONSE');
   }
 
-  console.log('--- TEST 2: Unauthenticated 401 challenge ---');
-  const resNoAuth = await makeRequest('/chapterhaven/');
-  console.log('Status:', resNoAuth.status, 'WWW-Authenticate:', resNoAuth.headers['www-authenticate']);
+  console.log('--- TEST 2: Unauthenticated 401 challenge on /chapterhaven (NO slash) ---');
+  const resNoAuth = await makeRequest('/chapterhaven');
+  console.log('Status:', resNoAuth.status, 'Location:', resNoAuth.headers.location, 'WWW-Authenticate:', resNoAuth.headers['www-authenticate']);
   if (resNoAuth.status !== 401 || !resNoAuth.headers['www-authenticate']) {
     throw new Error('Basic auth challenge header missing or wrong status');
   }
 
-  console.log('--- TEST 3: Authenticated access to HTML ---');
-  const resAuth = await makeRequest('/chapterhaven/', {
+  console.log('--- TEST 3: Authenticated access to HTML on /chapterhaven (NO slash) ---');
+  const resAuth = await makeRequest('/chapterhaven', {
     headers: { 'Authorization': authHeader }
   });
-  console.log('Status:', resAuth.status, 'Body contains ChapterHaven:', resAuth.body.includes('ChapterHaven'));
-  if (resAuth.status !== 200 || !resAuth.body.includes('ChapterHaven')) {
-    throw new Error('Authenticated HTML load failed');
+  console.log('Status:', resAuth.status, 'Location:', resAuth.headers.location, 'Body contains ChapterHaven:', resAuth.body.includes('ChapterHaven'));
+  if (resAuth.status !== 200 || resAuth.headers.location || !resAuth.body.includes('ChapterHaven')) {
+    throw new Error('Authenticated HTML load failed or redirected to slash');
   }
 
   console.log('--- TEST 4: Create Manga Entry ---');

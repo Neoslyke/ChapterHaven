@@ -39,9 +39,9 @@ const router = express.Router();
 // Apply HTTP Basic Auth to everything under /chapterhaven
 router.use(basicAuthMiddleware);
 
-// Serve static assets
+// Serve static assets (disable directory redirect to avoid adding trailing slash)
 const publicPath = path.join(__dirname, '..', 'public');
-router.use(express.static(publicPath));
+router.use(express.static(publicPath, { redirect: false }));
 
 // API Routes
 // 1. Get all entries
@@ -199,14 +199,11 @@ router.use((req, res) => {
 
 // Mount router under BASE_PATH
 if (BASE_PATH && BASE_PATH !== '') {
-  app.use((req, res, next) => {
-    // Redirect /chapterhaven to /chapterhaven/
-    if (req.originalUrl.split('?')[0] === BASE_PATH) {
-      const query = req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : '';
-      return res.redirect(301, `${BASE_PATH}/${query}`);
-    }
-    next();
+  // Serve index.html directly on exact /chapterhaven without trailing slash redirect
+  app.get(BASE_PATH, basicAuthMiddleware, (req, res) => {
+    res.sendFile(path.join(publicPath, 'index.html'));
   });
+
   app.use(BASE_PATH, router);
 } else {
   app.use('/', router);
