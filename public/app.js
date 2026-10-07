@@ -49,6 +49,11 @@
   const btnCloseEntryModal = document.getElementById('btnCloseEntryModal');
   const btnCancelEntry = document.getElementById('btnCancelEntry');
   const btnOpenAddModal = document.getElementById('btnOpenAddModal');
+  const btnSearchAddTitle = document.getElementById('btnSearchAddTitle');
+
+  // Theme elements
+  const themeToggleBtn = document.getElementById('themeToggleBtn');
+  const themeIcon = document.getElementById('themeIcon');
 
   // Import / Export Modal
   const importExportModal = document.getElementById('importExportModal');
@@ -67,6 +72,49 @@
   const importStatusArea = document.getElementById('importStatusArea');
 
   const toastEl = document.getElementById('toast');
+
+  // --- Theme Management ---
+
+  function getSystemTheme() {
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+      ? 'light'
+      : 'dark';
+  }
+
+  function getActiveTheme() {
+    return localStorage.getItem('chapterhaven_theme') || getSystemTheme();
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    if (themeIcon) {
+      themeIcon.textContent = theme === 'light' ? '☀️' : '🌙';
+    }
+    if (themeToggleBtn) {
+      themeToggleBtn.title = theme === 'light' ? 'Switch to Dark theme' : 'Switch to Light theme';
+    }
+  }
+
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+      const current = getActiveTheme();
+      const next = current === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('chapterhaven_theme', next);
+      applyTheme(next);
+      showToast(next === 'light' ? '☀️ Light mode enabled' : '🌙 Dark mode enabled', 1500);
+    });
+  }
+
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
+      if (!localStorage.getItem('chapterhaven_theme')) {
+        applyTheme(e.matches ? 'light' : 'dark');
+      }
+    });
+  }
+
+  // Initialize theme immediately
+  applyTheme(getActiveTheme());
 
   // --- Utility Functions ---
 
@@ -193,9 +241,16 @@
     if (query) {
       statsCount.textContent = `Found ${filtered.length} of ${totalCount} titles (${renderTime} ms)`;
       btnClearSearch.style.display = 'block';
+      if (btnSearchAddTitle) {
+        btnSearchAddTitle.style.display = 'inline-block';
+        btnSearchAddTitle.textContent = `+ Add "${activeSearchQuery.trim()}"`;
+      }
     } else {
       statsCount.textContent = `Tracking ${totalCount} titles (${favorites.length} favourites)`;
       btnClearSearch.style.display = 'none';
+      if (btnSearchAddTitle) {
+        btnSearchAddTitle.style.display = 'none';
+      }
     }
 
     // 4. Render HTML lists
@@ -213,9 +268,11 @@
         if (query) {
           emptyTitle.textContent = `No results for "${activeSearchQuery}"`;
           emptyMessage.textContent = 'Try checking for typos or searching by an alternative title.';
+          btnEmptyAdd.textContent = '+ Add Title';
         } else {
           emptyTitle.textContent = 'No titles tracked yet';
           emptyMessage.textContent = 'Click "+ Add Title" or use "Import" to add your collection.';
+          btnEmptyAdd.textContent = '+ Add Title';
         }
       } else {
         mainSection.style.display = 'none';
@@ -371,10 +428,14 @@
 
   // --- Add / Edit Modal ---
 
-  function openAddModal() {
+  function openAddModal(prefillTitle) {
     modalTitle.textContent = 'Add New Title';
     entryId.value = '';
     entryForm.reset();
+    const defaultTitle = typeof prefillTitle === 'string'
+      ? prefillTitle
+      : (activeSearchQuery ? activeSearchQuery.trim() : '');
+    inputTitle.value = defaultTitle;
     inputChapter.value = 0;
     inputType.value = 'Manhwa';
     inputStatus.value = 'Reading';
@@ -660,8 +721,15 @@
 
   // --- Modal Triggers ---
 
-  btnOpenAddModal.addEventListener('click', openAddModal);
-  btnEmptyAdd.addEventListener('click', openAddModal);
+  if (btnOpenAddModal) {
+    btnOpenAddModal.addEventListener('click', () => openAddModal());
+  }
+  if (btnSearchAddTitle) {
+    btnSearchAddTitle.addEventListener('click', () => openAddModal(activeSearchQuery ? activeSearchQuery.trim() : ''));
+  }
+  if (btnEmptyAdd) {
+    btnEmptyAdd.addEventListener('click', () => openAddModal(activeSearchQuery ? activeSearchQuery.trim() : ''));
+  }
   btnCloseEntryModal.addEventListener('click', closeEntryModal);
   btnCancelEntry.addEventListener('click', closeEntryModal);
 
@@ -692,7 +760,7 @@
       searchInput.select();
     } else if ((e.key === 'n' || e.key === 'N') && !isInputFocused) {
       e.preventDefault();
-      openAddModal();
+      openAddModal(activeSearchQuery ? activeSearchQuery.trim() : '');
     }
   });
 
