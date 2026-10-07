@@ -215,3 +215,4 @@ Your entire database is stored in a single SQLite file located on the host at:
 - **In-App Backup**: Click **`⇄ Import / Export`** &rarr; **Export / Backup** &rarr; **Download JSON Backup**.
 - **Host Backup**: Simply copy `./data/chapterhaven.db` to another machine or cloud storage.
 - All titles survive container rebuilds, updates, and VM reboots!
+
