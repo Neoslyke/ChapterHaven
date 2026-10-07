@@ -39,3 +39,4 @@ console.log(`Matching results: ${filtered.length}`);
 console.log(`- Favorites section (sorted A-Z): ${favs.length}`);
 console.log(`- All Titles section (sorted A-Z): ${nonFavs.length}`);
 console.log(`⚡ Instant search & sort execution time: ${duration} ms`);
+

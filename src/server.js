@@ -16,12 +16,22 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Redirect root to BASE_PATH
-if (BASE_PATH && BASE_PATH !== '') {
-  app.get('/', (req, res) => {
-    res.redirect(`${BASE_PATH}/`);
-  });
-}
+// Drop connection immediately for any route outside of BASE_PATH (like root /)
+// This causes browsers to display: "This page isn't working - <IP> didn't send any data (ERR_EMPTY_RESPONSE)"
+app.use((req, res, next) => {
+  // Allow health check for Docker/container monitoring
+  if (req.path === '/health') return next();
+
+  // If path doesn't start with BASE_PATH, terminate connection with no data
+  if (BASE_PATH && BASE_PATH !== '') {
+    const rawPath = req.originalUrl.split('?')[0];
+    if (rawPath !== BASE_PATH && !rawPath.startsWith(`${BASE_PATH}/`)) {
+      req.socket.destroy();
+      return;
+    }
+  }
+  next();
+});
 
 // Router for subpath /chapterhaven
 const router = express.Router();

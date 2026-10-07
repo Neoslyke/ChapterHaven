@@ -13,6 +13,7 @@
 - **➕ Quick Chapter Increments**: One-tap `[+]` and `[-]` buttons next to each chapter number for instantaneous tracking without opening menus, or click to input decimals (e.g., `14.5`).
 - **📱 Clean, Text-Only & Dark Mode**: Zero heavy image bandwidth or broken CDNs. Loads in milliseconds even on spotty mobile networks.
 - **🔒 WebDAV-Style Native Login**: Native HTTP Basic Authentication challenge dialog (`401 WWW-Authenticate`) pops up immediately when accessing `http://<my_oracle_ip>/chapterhaven`.
+- **🛡️ Stealth Root (ERR_EMPTY_RESPONSE)**: Accessing the bare IP `http://<my_oracle_ip>` immediately drops the connection with zero bytes sent (`ERR_EMPTY_RESPONSE`), identical to WebDAV / Nginx `return 444;`. It never forwards or redirects to `/chapterhaven`, keeping your tracker completely hidden from scanners and crawlers.
 - **⇄ Bulk Import & Export**: Easily import your existing 1,000+ titles via Quick Text Paste, JSON, or CSV in less than 2 seconds. Export JSON/CSV backups anytime.
 - **🗃️ Persistent SQLite Database**: Lightweight, zero-maintenance single-file SQLite database with Write-Ahead Logging (WAL) mounted to a persistent volume.
 
@@ -160,16 +161,72 @@ docker compose ps
 
 ---
 
-### Step 5: Access ChapterHaven in Your Browser
+### Step 5: Verify Stealth & Access ChapterHaven
 
-Open your web browser and navigate to:
+#### 1. Test Stealth on Root IP:
+If you or anyone visits:
+```
+http://<YOUR_ORACLE_IP>
+```
+The browser will **not** redirect. It will immediately show:
+```
+This page isn’t working
+<YOUR_ORACLE_IP> didn’t send any data.
+ERR_EMPTY_RESPONSE
+```
+The connection is dropped immediately without sending any headers or page content, keeping your tracker hidden from scanners.
+
+#### 2. Access ChapterHaven:
+Navigate specifically to:
 ```
 http://<YOUR_ORACLE_IP>/chapterhaven
 ```
-
-1. **Authentication Prompt**: The browser will immediately pop up its native authentication dialog (just like WebDAV).
+1. The browser immediately triggers the **WebDAV-style native authentication dialog** (`401 WWW-Authenticate`).
 2. Enter the username and password you defined in `.env`.
-3. You will be greeted with the ChapterHaven dashboard!
+3. The dashboard loads instantly!
+
+---
+
+## 🔀 Running Alongside an Existing WebDAV / Nginx Setup
+
+If you already have Nginx running WebDAV on port 80/443 on your Oracle VM and returning `ERR_EMPTY_RESPONSE` (`return 444;`) on `/`:
+
+1. Change the port mapping in `docker-compose.yml` to internal only:
+```yaml
+ports:
+  - "127.0.0.1:3000:3000"
+```
+
+2. Add this location block inside your existing Nginx server block (`/etc/nginx/sites-available/...`):
+```nginx
+server {
+    listen 80 default_server;
+    server_name _;
+
+    # Dropping connection on bare IP with zero data (ERR_EMPTY_RESPONSE)
+    location / {
+        return 444;
+    }
+
+    # Your existing WebDAV location
+    # location /webdav { ... }
+
+    # ChapterHaven route
+    location /chapterhaven {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+3. Reload Nginx:
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+Both your WebDAV and ChapterHaven will be accessible on their respective subpaths, while `http://<YOUR_ORACLE_IP>` gives `ERR_EMPTY_RESPONSE`!
 
 ---
 
@@ -210,3 +267,4 @@ If you'd like a custom domain with free automatic SSL (HTTPS) without opening an
 1. Create a free account at [Cloudflare](https://dash.cloudflare.com/).
 2. Go to **Zero Trust** &rarr; **Networks** &rarr; **Tunnels**.
 3. Create a tunnel, install `cloudflared` on your Oracle VM, and route `yourdomain.com/chapterhaven` to `http://localhost:3000/chapterhaven`.
+

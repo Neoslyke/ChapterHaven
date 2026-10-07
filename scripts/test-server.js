@@ -34,11 +34,18 @@ async function runTests() {
   // Give server time to bind
   await new Promise(r => setTimeout(r, 500));
 
-  console.log('--- TEST 1: Root redirect ---');
-  const resRoot = await makeRequest('/');
-  console.log('Status:', resRoot.status, 'Location:', resRoot.headers.location);
-  if (resRoot.status !== 302 || resRoot.headers.location !== '/chapterhaven/') {
-    throw new Error('Root redirect failed');
+  console.log('--- TEST 1: Root drops connection (ERR_EMPTY_RESPONSE) ---');
+  let rootDropped = false;
+  try {
+    await makeRequest('/');
+  } catch (err) {
+    if (err.code === 'ECONNRESET' || err.message.includes('socket hang up')) {
+      rootDropped = true;
+      console.log('Successfully dropped connection on / (ECONNRESET -> Chrome ERR_EMPTY_RESPONSE)');
+    }
+  }
+  if (!rootDropped) {
+    throw new Error('Root path was not dropped with ERR_EMPTY_RESPONSE');
   }
 
   console.log('--- TEST 2: Unauthenticated 401 challenge ---');
@@ -128,3 +135,4 @@ runTests().catch(err => {
   console.error('❌ Test failed:', err);
   process.exit(1);
 });
+
