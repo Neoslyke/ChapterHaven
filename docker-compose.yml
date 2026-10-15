@@ -1,0 +1,22 @@
+services:
+  chapterhaven:
+    image: ghcr.io/neoslyke/chapterhaven:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chapterhaven
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - BASE_PATH=/chapterhaven
+      - DATA_DIR=/app/data
+    volumes:
+      # Persistent SQLite database volume stored in ./data on host
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

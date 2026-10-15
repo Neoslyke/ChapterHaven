@@ -1,0 +1,229 @@
+require('dotenv').config();
+const express = require('express');
+const path = require('path');
+const db = require('./db');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+const BASE_PATH = (process.env.BASE_PATH || '/chapterhaven').replace(/\/+$/, ''); // e.g. "/chapterhaven"
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Health check endpoint (accessible without auth if needed for container monitoring)
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Drop connection immediately for any route outside of BASE_PATH (like root /)
+// This causes browsers to display: "This page isn't working - <IP> didn't send any data (ERR_EMPTY_RESPONSE)"
+app.use((req, res, next) => {
+  // Allow health check for Docker/container monitoring
+  if (req.path === '/health') return next();
+
+  // If path doesn't start with BASE_PATH, terminate connection with no data
+  if (BASE_PATH && BASE_PATH !== '') {
+    const rawPath = req.originalUrl.split('?')[0];
+    if (rawPath !== BASE_PATH && !rawPath.startsWith(`${BASE_PATH}/`)) {
+      req.socket.destroy();
+      return;
+    }
+  }
+  next();
+});
+
+// Router for subpath /chapterhaven
+const router = express.Router();
+
+// Serve static assets (disable directory redirect to avoid adding trailing slash)
+const publicPath = path.join(__dirname, '..', 'public');
+router.use(express.static(publicPath, { redirect: false }));
+
+// API Routes
+// 1. Get all entries
+router.get('/api/entries', (req, res) => {
+  try {
+    const entries = db.getAllEntries();
+    res.json(entries);
+  } catch (err) {
+    console.error('Error fetching entries:', err);
+    res.status(500).json({ error: 'Failed to fetch entries' });
+  }
+});
+
+// 2. Get single entry
+router.get('/api/entries/:id', (req, res) => {
+  try {
+    const entry = db.getEntryById(req.params.id);
+    if (!entry) return res.status(404).json({ error: 'Entry not found' });
+    res.json(entry);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch entry' });
+  }
+});
+
+// 3. Create new entry
+router.post('/api/entries', (req, res) => {
+  try {
+    const { title, alt_titles, chapter, is_favorite, type, status, url, notes } = req.body;
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+    const created = db.createEntry({ title, alt_titles, chapter, is_favorite, type, status, url, notes });
+    res.status(201).json(created);
+  } catch (err) {
+    console.error('Error creating entry:', err);
+    res.status(500).json({ error: 'Failed to create entry' });
+  }
+});
+
+// 4. Update entry
+router.put('/api/entries/:id', (req, res) => {
+  try {
+    const updated = db.updateEntry(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Entry not found' });
+    res.json(updated);
+  } catch (err) {
+    console.error('Error updating entry:', err);
+    res.status(500).json({ error: 'Failed to update entry' });
+  }
+});
+
+// 5. Delete entry
+router.delete('/api/entries/:id', (req, res) => {
+  try {
+    const deleted = db.deleteEntry(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Entry not found' });
+    res.json({ success: true, message: 'Entry deleted' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete entry' });
+  }
+});
+
+// 6. Toggle favorite
+router.post('/api/entries/:id/favorite', (req, res) => {
+  try {
+    const updated = db.toggleFavorite(req.params.id);
+    if (!updated) return res.status(404).json({ error: 'Entry not found' });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to toggle favorite' });
+  }
+});
+
+// 7. Update chapter (increment/decrement/direct set)
+router.post('/api/entries/:id/chapter', (req, res) => {
+  try {
+    const { chapter, delta } = req.body;
+    const existing = db.getEntryById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Entry not found' });
+
+    let newChapter;
+    if (delta !== undefined) {
+      newChapter = Math.max(0, parseFloat(existing.chapter || 0) + parseFloat(delta));
+    } else if (chapter !== undefined) {
+      newChapter = Math.max(0, parseFloat(chapter) || 0);
+    } else {
+      return res.status(400).json({ error: 'Must provide chapter or delta' });
+    }
+
+    // Round to 2 decimal places to avoid floating point issues (e.g. 10.5)
+    newChapter = Math.round(newChapter * 100) / 100;
+
+    const updated = db.updateChapter(req.params.id, newChapter);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update chapter' });
+  }
+});
+
+// 8. Bulk import entries
+router.post('/api/entries/bulk', (req, res) => {
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Items array is required' });
+    }
+    const result = db.bulkCreateEntries(items);
+    res.json({ success: true, count: result.count, message: `Imported ${result.count} entries.` });
+  } catch (err) {
+    console.error('Error during bulk import:', err);
+    res.status(500).json({ error: 'Failed to bulk import entries: ' + err.message });
+  }
+});
+
+// 9. Export all entries as JSON
+router.get('/api/export/json', (req, res) => {
+  try {
+    const entries = db.getAllEntries();
+    res.setHeader('Content-Disposition', 'attachment; filename="chapterhaven_export.json"');
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify(entries, null, 2));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to export entries' });
+  }
+});
+
+// 10. Export all entries as CSV
+router.get('/api/export/csv', (req, res) => {
+  try {
+    const entries = db.getAllEntries();
+    const headers = ['title', 'alt_titles', 'chapter', 'is_favorite', 'type', 'status', 'url', 'notes'];
+    const rows = [headers.join(',')];
+
+    for (const e of entries) {
+      const row = headers.map(h => {
+        let val = e[h] ?? '';
+        val = String(val).replace(/"/g, '""');
+        return `"${val}"`;
+      });
+      rows.push(row.join(','));
+    }
+
+    res.setHeader('Content-Disposition', 'attachment; filename="chapterhaven_export.csv"');
+    res.setHeader('Content-Type', 'text/csv');
+    res.send(rows.join('\r\n'));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to export CSV' });
+  }
+});
+
+// Serve frontend for subpath (fallback for client-side routing)
+router.use((req, res) => {
+  res.sendFile(path.join(publicPath, 'index.html'));
+});
+
+// Mount router under BASE_PATH
+if (BASE_PATH && BASE_PATH !== '') {
+  // Serve index.html directly on exact /chapterhaven without trailing slash redirect
+  app.get(BASE_PATH, (req, res) => {
+    res.sendFile(path.join(publicPath, 'index.html'));
+  });
+
+  app.use(BASE_PATH, router);
+} else {
+  app.use('/', router);
+}
+
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`=========================================`);
+  console.log(`🚀 ChapterHaven running on http://0.0.0.0:${PORT}${BASE_PATH}/`);
+  console.log(`=========================================`);
+});
+
+// Graceful shutdown on Docker stop/restart signals
+function gracefulShutdown(signal) {
+  console.log(`\n🛑 Received ${signal}, closing server gracefully...`);
+  server.close(() => {
+    console.log('HTTP server closed.');
+    process.exit(0);
+  });
+  setTimeout(() => {
+    console.error('Forcefully terminating process after timeout.');
+    process.exit(1);
+  }, 5000).unref();
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
